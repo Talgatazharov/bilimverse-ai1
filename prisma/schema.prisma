@@ -1,0 +1,224 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite stores roles as Strings: "STUDENT" | "TEACHER" | "PARENT" | "ADMIN"
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String
+  role           String          @default("STUDENT")
+  avatar         String          @default("boy-explorer")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  
+  studentProfile StudentProfile?
+  teacherProfile TeacherProfile?
+  parentProfile  ParentProfile?
+}
+
+model StudentProfile {
+  id              String            @id @default(cuid())
+  userId          String            @unique
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grade           Int               @default(3)
+  xp              Int               @default(1250)
+  level           Int               @default(7)
+  currency        Int               @default(340) // Тұмар
+  streak          Int               @default(6)   // Күндік қатарлық
+  avatarChoice    String            @default("boy-explorer")
+  title           String            @default("Жас ғалым")
+  
+  petStage        String            @default("explorer") // egg, baby, explorer, guardian, legendary
+  petName         String            @default("Қыран")
+  petExp          Int               @default(350)
+  
+  classroomId     String?
+  classroom       Classroom?        @relation(fields: [classroomId], references: [id])
+  
+  progress        MissionProgress[]
+  achievements    StudentAchievement[]
+  inventory       InventoryItem[]
+  buildings       WorldBuilding[]
+  conversations   AIConversation[]
+  dailyQuests     DailyQuestProgress[]
+}
+
+model TeacherProfile {
+  id          String      @id @default(cuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school      String      @default("BILIMVERSE мектебі")
+  classrooms  Classroom[]
+}
+
+model ParentProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentEmail   String   @default("ayan@bilimverse.kz")
+}
+
+model Classroom {
+  id          String           @id @default(cuid())
+  name        String           // e.g. "3А сыныбы"
+  grade       Int              @default(3)
+  teacherId   String
+  teacher     TeacherProfile   @relation(fields: [teacherId], references: [id])
+  students    StudentProfile[]
+  assignments Assignment[]
+}
+
+model Subject {
+  id          String    @id // e.g. "math", "kazakh", "literature", "science", "world", "english", "digital"
+  name        String    // e.g. "Математика"
+  realmName   String    // e.g. "Сандар патшалығы"
+  description String
+  icon        String
+  bgImage     String
+  color       String
+  order       Int       @default(0)
+  topics      Topic[]
+  missions    Mission[]
+}
+
+model Topic {
+  id          String    @id @default(cuid())
+  subjectId   String
+  subject     Subject   @relation(fields: [subjectId], references: [id])
+  title       String
+  grade       Int       @default(3)
+  missions    Mission[]
+}
+
+model Mission {
+  id          String            @id
+  subjectId   String
+  subject     Subject           @relation(fields: [subjectId], references: [id])
+  topicId     String?
+  topic       Topic?            @relation(fields: [topicId], references: [id])
+  title       String
+  description String
+  grade       Int               @default(3)
+  order       Int               @default(1)
+  xpReward    Int               @default(50)
+  coinReward  Int               @default(15)
+  hasBoss     Boolean           @default(false)
+  bossName    String?           @default("Тас сақшысы")
+  unlocks     String?           // comma separated ids
+  questions   Question[]
+  progress    MissionProgress[]
+  assignments Assignment[]
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  missionId     String
+  mission       Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  type          String   @default("multipleChoice") // dragDrop, matching, order, wordBuilder, etc.
+  question      String
+  options       String   // JSON string of options array
+  correctAnswer String
+  hint          String
+  explanation   String
+  difficulty    String   @default("normal") // easy, normal, hard
+  xp            Int      @default(10)
+  order         Int      @default(0)
+}
+
+model MissionProgress {
+  id          String         @id @default(cuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  missionId   String
+  mission     Mission        @relation(fields: [missionId], references: [id])
+  completed   Boolean        @default(false)
+  stars       Int            @default(0) // 1 to 3
+  bestScore   Int            @default(0)
+  completedAt DateTime?
+  
+  @@unique([studentId, missionId])
+}
+
+model Achievement {
+  id          String               @id
+  title       String
+  description String
+  category    String               // "math", "streak", "world", "qyran", "adventure"
+  icon        String
+  xpReward    Int                  @default(50)
+  students    StudentAchievement[]
+}
+
+model StudentAchievement {
+  id            String         @id @default(cuid())
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement    @relation(fields: [achievementId], references: [id])
+  unlockedAt    DateTime       @default(now())
+
+  @@unique([studentId, achievementId])
+}
+
+model InventoryItem {
+  id          String         @id @default(cuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name        String
+  category    String         // "avatar", "costume", "artifact", "badge"
+  image       String
+  rarity      String         @default("common") // common, rare, epic, legendary
+  equipped    Boolean        @default(false)
+}
+
+model WorldBuilding {
+  id          String         @id @default(cuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  buildingKey String         // "yurt", "library", "workshop", "stables", "qyran_house", "garden", "observatory", "science_center", "watermill", "bridge"
+  title       String
+  level       Int            @default(1)
+  maxLevel    Int            @default(3)
+  costToUpgrade Int          @default(50)
+
+  @@unique([studentId, buildingKey])
+}
+
+model DailyQuestProgress {
+  id          String         @id @default(cuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title       String
+  target      Int            @default(3)
+  progress    Int            @default(0)
+  completed   Boolean        @default(false)
+  rewardXp    Int            @default(30)
+  rewardCoins Int            @default(10)
+}
+
+model Assignment {
+  id          String         @id @default(cuid())
+  classroomId String
+  classroom   Classroom      @relation(fields: [classroomId], references: [id])
+  missionId   String
+  mission     Mission        @relation(fields: [missionId], references: [id])
+  dueDate     DateTime?
+  title       String
+}
+
+model AIConversation {
+  id          String         @id @default(cuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type        String         @default("tutor") // "tutor" | "adventure"
+  topic       String?
+  messages    String         // JSON serialized array of messages
+  updatedAt   DateTime       @updatedAt
+}

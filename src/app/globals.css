@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-game: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  background-color: #050814;
+  color: #f8fafc;
+  font-family: var(--font-game);
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a1128;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #16254c;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+/* Glow effects */
+.glow-gold {
+  filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.6));
+}
+
+.glow-turquoise {
+  filter: drop-shadow(0 0 10px rgba(14, 165, 233, 0.6));
+}
+
+/* Game button 3D push effect */
+.game-btn-push {
+  box-shadow: 0 4px 0 #b45309, 0 8px 20px rgba(245, 158, 11, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.game-btn-push:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #b45309, 0 4px 10px rgba(245, 158, 11, 0.3);
+}
