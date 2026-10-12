@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#183b47">
+  <meta name="description" content="BILIMVERSE AI — 1–4 сынып оқушыларына арналған қазақы интерактивті білім әлемі. Қыранмен саяхаттап, миссия орында және әлеміңді дамыт.">
+  <meta property="og:title" content="BILIMVERSE AI — Білім әлеміне саяхат">
+  <meta property="og:description" content="Оқу, ойын және қазақы ертегілік әлем. Браузерде саяхатты баста.">
+  <title>BILIMVERSE AI — Білім әлеміне саяхат</title>
+  <link rel="icon" type="image/svg+xml" href="brand.svg">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body { margin:0; background:#183b47; color:#faf3e3; font-family:system-ui,sans-serif; }
+    #boot { min-height:100vh; display:grid; place-content:center; text-align:center; padding:24px; box-sizing:border-box; }
+    #boot img { width:100px; margin:0 auto 24px; animation:pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform:scale(1.07); opacity:.7; } }
+    @media(prefers-reduced-motion:reduce) { #boot img { animation:none; } }
+  </style>
+</head>
+<body>
+  <div id="boot" role="status"><img src="brand.svg" alt="Шаңырақ"><strong>BILIMVERSE AI</strong><p>Білім әлемі ашылуда...</p></div>
+  <noscript>Білім әлемін ашу үшін браузерде JavaScript қосыңыз.</noscript>
+  <script>window.addEventListener('flutter-first-frame',()=>document.getElementById('boot')?.remove());</script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

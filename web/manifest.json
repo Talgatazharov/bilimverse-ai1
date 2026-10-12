@@ -1,0 +1,11 @@
+﻿{
+  "name": "BILIMVERSE AI",
+  "short_name": "BILIMVERSE",
+  "start_url": ".",
+  "display": "browser",
+  "background_color": "#183b47",
+  "theme_color": "#183b47",
+  "description": "Қазақы интерактивті білім әлемі",
+  "lang": "kk",
+  "icons": [{"src": "brand.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}

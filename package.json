@@ -1,0 +1,7 @@
+{
+  "name": "bilimverse-web",
+  "version": "0.2.0",
+  "private": true,
+  "description": "BILIMVERSE AI Flutter Web build adapter for Sites",
+  "scripts": { "build": "node scripts/build-web.mjs" }
+}
