@@ -6,6 +6,8 @@ enum Subject {
   worldKnowledge,
   english,
   digital,
+  creativity,
+  adventure,
 }
 
 enum QuestionType {

@@ -20,9 +20,11 @@ class WorldScreen extends ConsumerWidget {
     ('Сандар патшалығы', 'Математика · Алтын көпір', 'math'),
     ('Сөздер орманы', 'Қазақ тілі', 'kazakh'),
     ('Ертегілер елі', 'Әдебиеттік оқу', 'literature'),
-    ('Зерттеушілер аралы', 'Дүниетану · Жаратылыстану', 'science'),
+    ('Зерттеушілер аралы', 'Дүниетану', 'worldKnowledge'),
+    ('Ғылым зертханасы', 'Жаратылыстану', 'science'),
     ('English Town', 'Ағылшын тілі', 'english'),
     ('Digital City', 'Цифрлық сауаттылық', 'digital'),
+    ('Шығармашылық шеберхана', 'Көркем еңбек', 'creativity'),
   ];
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
@@ -85,9 +87,38 @@ class WorldScreen extends ConsumerWidget {
                           if (!wide)
                             Padding(
                               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                              child: GameButton(
-                                label: 'Сандар патшалығына бар',
-                                onPressed: () => context.push('/kingdom'),
+                              child: Column(
+                                children: [
+                                  GameButton(
+                                    label: 'Сандар патшалығына бар',
+                                    onPressed: () =>
+                                        context.push('/subject/math'),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  GameButton(
+                                    label: 'Менің әлемім',
+                                    secondary: true,
+                                    onPressed: () => context.push('/my-world'),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  GameButton(
+                                    label: 'Оқиғалы саяхат',
+                                    secondary: true,
+                                    onPressed: () => context.push('/adventure'),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  GameButton(
+                                    label: 'Үй тапсырмасы',
+                                    secondary: true,
+                                    onPressed: () => context.push('/homework'),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  GameButton(
+                                    label: 'Мұғалім',
+                                    secondary: true,
+                                    onPressed: () => context.push('/teacher'),
+                                  ),
+                                ],
                               ),
                             ),
                           Row(
@@ -219,7 +250,20 @@ class WorldScreen extends ConsumerWidget {
 
   void _visit(BuildContext context, StudentProgress student, int index) {
     if (index == 1) {
-      context.push('/kingdom');
+      context.push('/subject/math');
+      return;
+    }
+    if (index > 1) {
+      const subjects = {
+        2: 'kazakh',
+        3: 'literature',
+        4: 'worldKnowledge',
+        5: 'science',
+        6: 'english',
+        7: 'digital',
+        8: 'creativity',
+      };
+      context.push('/subject/${subjects[index]}');
       return;
     }
     showDialog<void>(
@@ -233,7 +277,7 @@ class WorldScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                RegionLandmark(kind: index, size: 180),
+                RegionLandmark(kind: index % 7, size: 180),
                 Text(
                   regions[index].$1,
                   textAlign: TextAlign.center,
@@ -289,7 +333,7 @@ class _RegionStop extends StatelessWidget {
             child: Column(
               children: [
                 RegionLandmark(
-                  kind: index,
+                  kind: index % 7,
                   locked: locked,
                   size: index == 1 ? 180 : 150,
                 ),
@@ -356,7 +400,7 @@ class _TravelJournal extends ConsumerWidget {
         const SizedBox(height: 20),
         GameButton(
           label: 'Миссияға бару',
-          onPressed: () => context.push('/kingdom'),
+          onPressed: () => context.push('/subject/math'),
         ),
         const SizedBox(height: 32),
         const Divider(color: GameColors.sand),

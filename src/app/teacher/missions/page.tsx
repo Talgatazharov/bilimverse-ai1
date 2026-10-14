@@ -18,100 +18,37 @@ import {
 import { sounds } from '@/lib/sound-manager';
 import { SUBJECTS } from '@/data/seed-data';
 import { useGameStore } from '@/stores/useGameStore';
+import { loadTeacherMissions, type LocalTeacherMission } from '@/lib/local-teacher-missions';
 
 export default function TeacherMissionsPage() {
-  const { teacherProfile } = useGameStore();
+  const { teacherProfile, student } = useGameStore();
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [notification, setNotification] = useState<string | null>(null);
 
-  const teacherMissions = [
-    {
-      id: 'tm_1',
-      title: 'Көбейту және бөлу негіздері: 3А сынып сынағы',
-      subjectId: 'math',
-      subjectName: 'Математика',
-      grade: 3,
-      assignedClass: '3А сыныбы',
-      questionCount: 6,
-      studentsCompleted: 21,
-      totalStudents: 24,
-      avgScore: 88,
-      status: 'active',
+  const [savedMissions, setSavedMissions] = useState<LocalTeacherMission[]>([]);
+  React.useEffect(() => { setSavedMissions(loadTeacherMissions()); }, []);
+  const teacherMissions = savedMissions.map(({ mission, assignedClass, createdAt }) => {
+    const completion = student.completedMissions[mission.id];
+    return {
+      id: mission.id,
+      title: mission.title,
+      subjectId: mission.subjectId,
+      subjectName: SUBJECTS.find((subject) => subject.id === mission.subjectId)?.name || mission.subjectId,
+      grade: mission.grade,
+      assignedClass,
+      questionCount: mission.questions.length,
+      studentsCompleted: completion ? 1 : 0,
+      totalStudents: 1,
+      avgScore: completion ? Math.round(completion.stars * 100 / 3) : 0,
+      status: completion ? 'completed' : 'active',
       isAiGenerated: true,
-      createdAt: '10 қазан, 2026',
-    },
-    {
-      id: 'tm_2',
-      title: 'Түбір мен қосымша, дыбыс үндестігі',
-      subjectId: 'kazakh',
-      subjectName: 'Қазақ тілі',
-      grade: 3,
-      assignedClass: '3А сыныбы',
-      questionCount: 5,
-      studentsCompleted: 24,
-      totalStudents: 24,
-      avgScore: 92,
-      status: 'completed',
-      isAiGenerated: false,
-      createdAt: '8 қазан, 2026',
-    },
-    {
-      id: 'tm_3',
-      title: 'Қазақ халық ертегілері және кейіпкерлер мінезі',
-      subjectId: 'literature',
-      subjectName: 'Әдебиеттік оқу',
-      grade: 3,
-      assignedClass: '3А сыныбы',
-      questionCount: 4,
-      studentsCompleted: 19,
-      totalStudents: 24,
-      avgScore: 85,
-      status: 'active',
-      isAiGenerated: true,
-      createdAt: '11 қазан, 2026',
-    },
-    {
-      id: 'tm_4',
-      title: 'Табиғаттағы су айналымы және экожүйе',
-      subjectId: 'science',
-      subjectName: 'Жаратылыстану',
-      grade: 3,
-      assignedClass: '3А, 3Ә сыныптары',
-      questionCount: 5,
-      studentsCompleted: 38,
-      totalStudents: 46,
-      avgScore: 79,
-      status: 'active',
-      isAiGenerated: true,
-      createdAt: '9 қазан, 2026',
-    },
-    {
-      id: 'tm_5',
-      title: 'Алгоритмдер және кибер-қауіпсіздік негіздері',
-      subjectId: 'digital',
-      subjectName: 'Цифрлық сауаттылық',
-      grade: 3,
-      assignedClass: '3А сыныбы',
-      questionCount: 5,
-      studentsCompleted: 24,
-      totalStudents: 24,
-      avgScore: 95,
-      status: 'completed',
-      isAiGenerated: true,
-      createdAt: '5 қазан, 2026',
-    },
-  ];
-
+      createdAt: new Date(createdAt).toLocaleDateString('kk-KZ'),
+    };
+  });
   const filteredMissions = teacherMissions.filter((m) => {
     if (selectedSubject !== 'all' && m.subjectId !== selectedSubject) return false;
     return true;
   });
-
-  const handleRemindStudents = (title: string) => {
-    sounds.play('xp');
-    setNotification(`«${title}» тапсырмасын орындамаған оқушыларға Bilimverse хабарламасы жолданды!`);
-    setTimeout(() => setNotification(null), 4000);
-  };
 
   return (
     <AppLayout showRightPanel={false}>
@@ -139,7 +76,7 @@ export default function TeacherMissionsPage() {
                 Сынып Миссиялары мен Тесттер
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                {teacherProfile.name || 'Ұстаз'} · Сыныптарға бағытталған ойындық оқу миссиялары
+                {teacherProfile.name || 'Ұстаз'} · Осы браузерде сақталған тест миссиялары
               </p>
             </div>
 
@@ -196,6 +133,7 @@ export default function TeacherMissionsPage() {
 
         {/* Missions Grid */}
         <div className="space-y-4">
+          {filteredMissions.length === 0 && <div className="rounded-2xl border border-game-panel p-6 text-sm text-slate-300">Әзірге осы браузерде жасалған миссия жоқ. «Жаңа Миссия Жасау» батырмасын басыңыз.</div>}
           {filteredMissions.map((m) => {
             const completionPercent = Math.round((m.studentsCompleted / m.totalStudents) * 100);
             return (
@@ -258,16 +196,8 @@ export default function TeacherMissionsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {completionPercent < 100 && (
-                      <button
-                        onClick={() => handleRemindStudents(m.title)}
-                        className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-400/50 transition-colors title='Оқушыларға еске салу'"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    )}
                     <Link
-                      href={`/subject/${m.subjectId}`}
+                      href={`/mission/${m.id}`}
                       onClick={() => sounds.play('click')}
                       className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors border border-slate-700"
                     >

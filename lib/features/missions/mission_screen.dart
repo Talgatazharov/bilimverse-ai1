@@ -16,8 +16,9 @@ final missionQuestionsProvider = FutureProvider.family<List<Question>, String>(
 );
 
 class MissionScreen extends ConsumerStatefulWidget {
-  const MissionScreen({super.key, required this.missionId});
+  const MissionScreen({super.key, required this.missionId, this.assignmentId});
   final String missionId;
+  final String? assignmentId;
   @override
   ConsumerState<MissionScreen> createState() => _MissionState();
 }
@@ -25,6 +26,9 @@ class MissionScreen extends ConsumerStatefulWidget {
 class _MissionState extends ConsumerState<MissionScreen> {
   int _index = 0;
   int _mistakes = 0;
+  final Map<String, int> _topicAttempts = {};
+  final Map<String, int> _topicCorrect = {};
+  final List<int> _selectedTokens = [];
   bool _answered = false;
   bool _saving = false;
   bool _complete = false;
@@ -40,6 +44,7 @@ class _MissionState extends ConsumerState<MissionScreen> {
       setState(() {
         _index++;
         _answered = false;
+        _selectedTokens.clear();
         _feedback = null;
       });
       return;
@@ -62,7 +67,13 @@ class _MissionState extends ConsumerState<MissionScreen> {
         : 1;
     final saved = await ref
         .read(studentProvider.notifier)
-        .completeMission(widget.missionId, _stars);
+        .completeMission(
+          widget.missionId,
+          _stars,
+          topicAttempts: _topicAttempts,
+          topicCorrect: _topicCorrect,
+          assignmentId: widget.assignmentId,
+        );
     if (!mounted) return;
     if (saved) {
       final after = ref.read(studentProvider).requireValue;
@@ -79,6 +90,23 @@ class _MissionState extends ConsumerState<MissionScreen> {
         _feedback = 'Сыйлық сақталмады. Қайта сақтап көрейік!';
       });
     }
+  }
+
+  void _submitAnswer(Question question, String answer) {
+    setState(() {
+      _topicAttempts[question.topic] =
+          (_topicAttempts[question.topic] ?? 0) + 1;
+      if (answer == question.correctAnswer) {
+        _topicCorrect[question.topic] =
+            (_topicCorrect[question.topic] ?? 0) + 1;
+        _answered = true;
+        _feedback = 'Жарайсың! ${question.explanation}';
+      } else {
+        _mistakes++;
+        _selectedTokens.clear();
+        _feedback = 'Тағы ойланып көрейік! ${question.hint}';
+      }
+    });
   }
 
   @override
@@ -100,7 +128,7 @@ class _MissionState extends ConsumerState<MissionScreen> {
               error: (_, _) => GameStatus(
                 message: 'Бұл миссия ашылмады.',
                 actionLabel: 'Миссияларға қайту',
-                onRetry: () => context.go('/kingdom'),
+                onRetry: () => context.go('/world'),
               ),
               data: (questions) {
                 if (questions.isEmpty) {
@@ -112,6 +140,7 @@ class _MissionState extends ConsumerState<MissionScreen> {
                 }
                 final boss = _index >= questions.length;
                 final question = questions[_index % questions.length];
+                final adventure = widget.missionId.startsWith('adventure-');
                 return Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 760),
@@ -123,7 +152,7 @@ class _MissionState extends ConsumerState<MissionScreen> {
                           child: TextButton.icon(
                             onPressed: _saving
                                 ? null
-                                : () => context.go('/kingdom'),
+                                : () => context.go('/world'),
                             icon: const Icon(Icons.arrow_back_rounded),
                             label: const Text('Миссияларға қайту'),
                           ),
@@ -185,39 +214,113 @@ class _MissionState extends ConsumerState<MissionScreen> {
                             ),
                           ),
                         const SizedBox(height: 32),
+                        if (adventure) ...[
+                          Text(
+                            [
+                              'Ғарыш кемесіне отын керек. Алдымен есепті шеш.',
+                              'Капитанның хатын оқуға көмектес.',
+                              'Жаңа ғаламшарды зертте.',
+                              'Ғарыштағы ағылшын сөзін таны.',
+                              'Роботқа қауіпсіз жол көрсет.',
+                            ][_index % questions.length],
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 20),
+                        ],
                         Text(
                           question.question,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
                         const SizedBox(height: 28),
-                        for (final option in question.options)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: GameButton(
-                              label: option,
-                              icon:
-                                  _answered && option == question.correctAnswer
-                                  ? Icons.check_circle_outline
-                                  : Icons.touch_app_outlined,
-                              secondary:
-                                  !_answered ||
-                                  option != question.correctAnswer,
-                              onPressed: _answered || _saving
-                                  ? null
-                                  : () => setState(() {
-                                      if (option == question.correctAnswer) {
-                                        _answered = true;
-                                        _feedback =
-                                            'Жарайсың! ${question.explanation}';
-                                      } else {
-                                        _mistakes++;
-                                        _feedback =
-                                            'Тағы ойланып көрейік! ${question.hint}';
-                                      }
-                                    }),
-                            ),
+                        if (question.type == QuestionType.sentenceBuilder ||
+                            question.type == QuestionType.maze) ...[
+                          Text(
+                            question.type == QuestionType.maze
+                                ? 'Роботтың бағытын ретімен таңда:'
+                                : 'Сөздерді ретімен таңда:',
                           ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final selected in _selectedTokens)
+                                InputChip(
+                                  label: Text(
+                                    question.correctAnswer.split(' ')[selected],
+                                  ),
+                                  onPressed: _answered
+                                      ? null
+                                      : () => setState(
+                                          () =>
+                                              _selectedTokens.remove(selected),
+                                        ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final token in List.generate(
+                                question.correctAnswer.split(' ').length,
+                                (i) => i,
+                              ).reversed)
+                                if (!_selectedTokens.contains(token))
+                                  ActionChip(
+                                    label: Text(
+                                      question.correctAnswer.split(' ')[token],
+                                    ),
+                                    onPressed: _answered
+                                        ? null
+                                        : () => setState(
+                                            () => _selectedTokens.add(token),
+                                          ),
+                                  ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          GameButton(
+                            label: 'Тексеру',
+                            onPressed:
+                                _answered ||
+                                    _saving ||
+                                    _selectedTokens.length !=
+                                        question.correctAnswer.split(' ').length
+                                ? null
+                                : () => _submitAnswer(
+                                    question,
+                                    _selectedTokens
+                                        .map(
+                                          (i) => question.correctAnswer.split(
+                                            ' ',
+                                          )[i],
+                                        )
+                                        .join(' '),
+                                  ),
+                          ),
+                        ] else
+                          for (final option in question.options)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: GameButton(
+                                label: option,
+                                icon:
+                                    _answered &&
+                                        option == question.correctAnswer
+                                    ? Icons.check_circle_outline
+                                    : Icons.touch_app_outlined,
+                                secondary:
+                                    !_answered ||
+                                    option != question.correctAnswer,
+                                onPressed: _answered || _saving
+                                    ? null
+                                    : () => _submitAnswer(question, option),
+                              ),
+                            ),
                         if (_feedback != null)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),

@@ -4,70 +4,15 @@ import React, { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { BookOpen, Sparkles, BookMarked, Search, X } from 'lucide-react';
 import { sounds } from '@/lib/sound-manager';
-
-interface BookItem {
-  id: string;
-  title: string;
-  author: string;
-  category: 'fairy' | 'science' | 'history';
-  coverColor: string;
-  excerpt: string;
-  content: string;
-}
+import { LIBRARY_STORIES, type LibraryStory } from '@/data/library-stories';
 
 export default function LibraryPage() {
-  const [selectedBook, setSelectedBook] = useState<BookItem | null>(null);
+  const [selectedBook, setSelectedBook] = useState<LibraryStory | null>(null);
 
-  const books: BookItem[] = [
-    {
-      id: 'b1',
-      title: 'Ер Төстік',
-      author: 'Қазақ халық ертегісі',
-      category: 'fairy',
-      coverColor: 'from-amber-600 to-amber-900',
-      excerpt: 'Шалқұйрық атты тұлпары бар батыр Ер Төстіктің жер асты патшалығына саяхаты.',
-      content: 'Ерте-ерте-ертеде, ешкі жүні бөртеде, Ерназар деген кісінің сегіз ұлы болыпты. Бір жылы Ұлы Далада жұт болып, сегіз ұлы елге азық іздеп кетіпті. Ерназардың соңынан ер баласы Төстік туыпты. Төстік күн сайын емес, сағат сайын өсіп, алып батыр болыпты...',
-    },
-    {
-      id: 'b2',
-      title: 'Алдар Көсе мен Сараң Бай',
-      author: 'Қазақ халық ертегісі',
-      category: 'fairy',
-      coverColor: 'from-emerald-600 to-emerald-900',
-      excerpt: 'Тапқыр Алдар Көсенің сараң байды ақылымен жеңіп шыққан күлкілі оқиғасы.',
-      content: 'Алдар Көсе бірде тонсыз, жыртық шапанмен келе жатып, қалың тоны бар байға кездеседі. Бай оған: «Сен неге тоңбайсың?» дейді. Сонда Алдар: «Менің тоным сыртынан кірген суықты шығармайды, жел өткізбейтін сиқырлы!» деп байдың тонын алып киіп кетіпті...',
-    },
-    {
-      id: 'b3',
-      title: 'Ғарыш Сыры және Байқоңыр',
-      author: 'Танымдық әңгіме',
-      category: 'science',
-      coverColor: 'from-sky-600 to-blue-900',
-      excerpt: 'Қазақ жеріндегі әлемдік ғарыш айлағы мен жұлдыздар әлеміне сапар.',
-      content: 'Байқоңыр — адам баласының ғарышқа алғаш қадам басқан киелі мекені. 1961 жылы осы жерден тұңғыш ғарышкер Юрий Гагарин, ал кейін қазақтың батыр ғарышкерлері Тоқтар Әубәкіров, Талғат Мұсабаев және Айдын Айымбетов жұлдыздарға сапар шекті...',
-    },
-    {
-      id: 'b4',
-      title: 'Қарлығаштың Құйрығы Неге Айыр?',
-      author: 'Қазақ халық ертегісі',
-      category: 'fairy',
-      coverColor: 'from-rose-600 to-rose-900',
-      excerpt: 'Адам баласына жақсылық жасаған кішкентай құстың ерлігі туралы аңыз.',
-      content: 'Баяғыда алып айдаһар адамдарға қауіп төндіргенде, кішкентай қарлығаш адамдарды құтқару үшін көмекке ұшады. Айдаһар оған ысқырып шабуылдағанда, қарлығаштың тек құйрығының ортасы жұлынып, айыр болып қалыпты...',
-    },
-    {
-      id: 'b5',
-      title: 'Алатау мен Апорт Алмасы',
-      author: 'Табиғат әлемі',
-      category: 'science',
-      coverColor: 'from-purple-600 to-purple-900',
-      excerpt: 'Іле Алатауының етегінде өсетін алып хош иісті қызыл алмалар тарихы.',
-      content: 'Қазақстан — әлемдегі барлық алмалардың түп отаны. Алатаудың таза тау суы мен салқын самалы апорт алмасын әлемдегі ең үлкен әрі дәмді жеміске айналдырған...',
-    },
-  ];
+  const books = LIBRARY_STORIES;
 
   return (
-    <AppLayout showRightPanel={true}>
+    <AppLayout showRightPanel={false} missionMobileLayout>
       <div className="space-y-6 max-w-5xl mx-auto select-none">
         <div>
           <h1 className="text-2xl font-black text-amber-300 flex items-center gap-2">
@@ -141,7 +86,13 @@ export default function LibraryPage() {
 
               {/* Book Text Content */}
               <div className="flex-1 overflow-y-auto pr-2 text-sm text-sky-100 leading-relaxed space-y-4 scrollbar-thin scrollbar-thumb-game-panel">
-                <p className="whitespace-pre-line">{selectedBook.content}</p>
+                {selectedBook.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+                <div className="rounded-2xl bg-game-deep/70 p-4">
+                  <strong className="text-amber-300">Ойлан:</strong>
+                  <ol className="mt-2 list-decimal pl-5 space-y-1">
+                    {selectedBook.reflection.map((question) => <li key={question}>{question}</li>)}
+                  </ol>
+                </div>
                 <p className="text-xs text-amber-300 italic pt-4">
                   «Оқыған — озар, оқымаған — тозар. Білім әлемі саған әрқашан ашық!»
                 </p>

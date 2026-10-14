@@ -47,6 +47,10 @@ export default function AiTutorPage() {
 
   // OCR Homework State
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+  const [chatReady, setChatReady] = useState(false);
   const [ocrResult, setOcrResult] = useState<{
     recognizedText: string;
     analysis: string;
@@ -54,9 +58,21 @@ export default function AiTutorPage() {
     score: number;
   } | null>(null);
 
-  const handleSend = async (customPrompt?: string) => {
+  React.useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`bilimverse_chat_${student.id}`) || '[]');
+      if (Array.isArray(saved) && saved.length) setMessages(saved.slice(-80));
+    } catch { /* chat still works without local storage */ }
+    setChatReady(true);
+  }, [student.id]);
+  React.useEffect(() => {
+    if (!chatReady) return;
+    try { localStorage.setItem(`bilimverse_chat_${student.id}`, JSON.stringify(messages.slice(-80))); } catch { /* optional history */ }
+  }, [chatReady, messages, student.id]);
+
+  const handleSend = async (customPrompt?: string, retry = false) => {
     const textToSend = customPrompt || inputText;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() || isLoading) return;
 
     sounds.play('click');
     const userMsg: ChatMessage = {
@@ -66,14 +82,16 @@ export default function AiTutorPage() {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    if (!retry) setMessages((prev) => [...prev, userMsg]);
     setInputText('');
     setIsLoading(true);
+    setChatError(null);
+    setLastFailedPrompt(null);
     setQyranMood('thinking');
 
     try {
       let replyText = '';
-      if (textToSend.includes('Hint') || textToSend.includes('кеңес')) {
+      if (/hint|кеңес|көмек бер/i.test(textToSend)) {
         const hint = await aiService.generateHint(textToSend, hintStep);
         replyText = hint.message;
         setHintStep((prev) => (prev % 5) + 1);
@@ -93,18 +111,35 @@ export default function AiTutorPage() {
 
       setMessages((prev) => [...prev, qyranMsg]);
       recordQyranChat();
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : 'AI қызметіне қосылу мүмкін болмады.');
+      setLastFailedPrompt(textToSend);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOcrAnalyze = async () => {
+  const handleOcrAnalyze = async (file: File) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 3_500_000) {
+      setOcrError('JPG, PNG немесе WebP суретін таңдаңыз (ең көбі 3.5 МБ).');
+      return;
+    }
     sounds.play('click');
     setOcrLoading(true);
+    setOcrError(null);
+    setOcrResult(null);
     try {
-      const res = await aiService.checkHomeworkOCR('dapter.jpg');
+      const imageData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Суретті оқу мүмкін болмады.'));
+        reader.readAsDataURL(file);
+      });
+      const res = await aiService.checkHomeworkOCR(imageData, student.grade);
       setOcrResult(res);
       sounds.play('levelUp');
+    } catch (error) {
+      setOcrError(error instanceof Error ? error.message : 'Суретті тексеру мүмкін болмады.');
     } finally {
       setOcrLoading(false);
     }
@@ -206,6 +241,7 @@ export default function AiTutorPage() {
                   <span className="animate-spin">✦</span> Қыран ойланып жатыр...
                 </div>
               )}
+              {chatError && <p role="alert" className="text-xs text-rose-300">{chatError} {lastFailedPrompt && <button className="ml-2 underline" onClick={() => void handleSend(lastFailedPrompt, true)}>Қайта көру</button>}</p>}
             </div>
 
             {/* Quick Action Buttons (Section 18) */}
@@ -214,25 +250,25 @@ export default function AiTutorPage() {
                 onClick={() => handleSend('Көбейту кестесін қалай тез жаттауға болады? Түсіндірші')}
                 className="px-3 py-1.5 rounded-xl bg-game-surface hover:bg-game-surfaceHover border border-game-panel text-[11px] text-amber-300 font-bold flex items-center gap-1 transition-all"
               >
-                <BookOpen className="w-3 h-3 text-amber-400" /> Түсіндір
+                <BookOpen className="w-3 h-3 text-amber-400" /> Мынаны түсіндір
               </button>
               <button
                 onClick={() => handleSend('Ондықтарды қосуға өмірден мысал келтірші')}
                 className="px-3 py-1.5 rounded-xl bg-game-surface hover:bg-game-surfaceHover border border-game-panel text-[11px] text-sky-300 font-bold flex items-center gap-1 transition-all"
               >
-                <Sparkles className="w-3 h-3 text-sky-400" /> Мысал келтір
+                <Sparkles className="w-3 h-3 text-sky-400" /> Маған мысал келтір
               </button>
               <button
-                onClick={() => handleSend('Маған қазақ тілінен қызық тапсырма берші')}
+                onClick={() => { const last = [...messages].reverse().find((message) => message.sender === 'user')?.text; if (last) void handleSend(`Кішкене көмек бер: ${last}`); else setInputText('Кішкене көмек бер: '); }}
                 className="px-3 py-1.5 rounded-xl bg-game-surface hover:bg-game-surfaceHover border border-game-panel text-[11px] text-emerald-300 font-bold flex items-center gap-1 transition-all"
               >
-                <FileQuestion className="w-3 h-3 text-emerald-400" /> Маған тапсырма бер
+                <FileQuestion className="w-3 h-3 text-emerald-400" /> Кішкене көмек бер
               </button>
               <button
-                onClick={() => handleSend('Осы есепке Hint берші')}
+                onClick={() => setInputText('Жауабымды тексер: ')}
                 className="px-3 py-1.5 rounded-xl bg-game-surface hover:bg-game-surfaceHover border border-game-panel text-[11px] text-purple-300 font-bold flex items-center gap-1 transition-all"
               >
-                <Lightbulb className="w-3 h-3 text-purple-400" /> Hint бер ({hintStep}/5)
+                <Lightbulb className="w-3 h-3 text-purple-400" /> Жауабымды тексер
               </button>
             </div>
 
@@ -274,18 +310,20 @@ export default function AiTutorPage() {
             </div>
 
             {/* Upload Box */}
-            <div
-              onClick={handleOcrAnalyze}
-              className="border-2 border-dashed border-amber-400/50 hover:border-amber-400 rounded-3xl p-8 text-center cursor-pointer bg-game-navy/60 hover:bg-game-navy transition-all group"
+            <label
+              className="block border-2 border-dashed border-amber-400/50 hover:border-amber-400 rounded-3xl p-8 text-center cursor-pointer bg-game-navy/60 hover:bg-game-navy transition-all group"
             >
+              <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleOcrAnalyze(file); event.target.value = ''; }} />
               <Upload className="w-10 h-10 text-amber-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
               <div className="text-sm font-bold text-white">
                 Дәптер парағын жүктеу немесе суретке түсіру
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                Demo тексеру үшін шертіңіз (мысалды талдайды)
+                JPG, PNG немесе WebP · 3.5 МБ дейін
               </div>
-            </div>
+            </label>
+
+            {ocrError && <p role="alert" className="text-sm text-rose-300">{ocrError}</p>}
 
             {ocrLoading && (
               <div className="text-center py-6 text-amber-400 font-bold text-sm animate-pulse">

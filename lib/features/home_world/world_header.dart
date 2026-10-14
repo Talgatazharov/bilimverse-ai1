@@ -35,8 +35,24 @@ class WorldHeader extends StatelessWidget {
                   child: const Text('Менің әлемім'),
                 ),
                 TextButton(
-                  onPressed: () => context.push('/kingdom'),
+                  onPressed: () => context.push('/subject/math'),
                   child: const Text('Миссиялар'),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/my-world'),
+                  child: const Text('Менің әлемім'),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/adventure'),
+                  child: const Text('Оқиғалы саяхат'),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/homework'),
+                  child: const Text('Үй тапсырмасы'),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/teacher'),
+                  child: const Text('Мұғалім'),
                 ),
               ],
             ),

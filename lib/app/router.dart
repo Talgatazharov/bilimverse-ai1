@@ -5,10 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../features/design_preview/design_preview_screen.dart';
 import '../features/design_preview/settings_screen.dart';
 import '../features/home_world/world_screen.dart';
+import '../features/home_world/progress_world_screen.dart';
+import '../features/homework/homework_screen.dart';
+import '../features/teacher/teacher_studio_screen.dart';
 import '../features/missions/mission_screen.dart';
 import '../features/onboarding/entry_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/subjects/math_kingdom_screen.dart';
+import '../features/subjects/subject_screen.dart';
+import '../models/question.dart';
 import '../widgets/game_status.dart';
 
 final initialLocationProvider = Provider<String?>((ref) => null);
@@ -20,9 +25,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       GoRoute(path: '/world', builder: (_, _) => const WorldScreen()),
       GoRoute(
+        path: '/my-world',
+        builder: (_, _) => const ProgressWorldScreen(),
+      ),
+      GoRoute(path: '/homework', builder: (_, _) => const HomeworkScreen()),
+      GoRoute(path: '/teacher', builder: (_, _) => const TeacherStudioScreen()),
+      GoRoute(
+        path: '/adventure',
+        builder: (context, state) =>
+            const SubjectScreen(subject: Subject.adventure),
+      ),
+      GoRoute(
         path: '/kingdom',
         pageBuilder: (context, state) =>
             _portalPage(context, state, const MathKingdomScreen()),
+      ),
+      GoRoute(
+        path: '/subject/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          final subject = Subject.values.where((s) => s.name == id).firstOrNull;
+          return subject == null
+              ? Scaffold(body: GameStatus(onRetry: () => context.go('/world')))
+              : SubjectScreen(subject: subject);
+        },
       ),
       GoRoute(
         path: '/mission/:id',
@@ -32,6 +58,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           MissionScreen(
             key: ValueKey(state.pathParameters['id']),
             missionId: state.pathParameters['id']!,
+            assignmentId: state.uri.queryParameters['assignment'],
           ),
         ),
       ),

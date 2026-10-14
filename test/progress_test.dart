@@ -31,6 +31,9 @@ void main() {
         stars: {'math-1': 3},
         achievements: {'first'},
         worldUnlocks: {'math', 'bridge'},
+        topicAttempts: {'Көбейту': 5},
+        topicCorrect: {'Көбейту': 4},
+        petKind: 'fox',
         lastStudyDate: '2026-10-12',
         settings: const GameSettings(
           music: false,

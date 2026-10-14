@@ -21,6 +21,7 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
   int _step = 0;
   int _grade = 3;
   String _avatar = 'explorer';
+  String _petKind = 'qyran';
   bool _saving = false;
   String? _error;
   @override
@@ -44,7 +45,12 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
     setState(() => _saving = true);
     final saved = await ref
         .read(studentProvider.notifier)
-        .completeOnboarding(name: _name.text, grade: _grade, avatar: _avatar);
+        .completeOnboarding(
+          name: _name.text,
+          grade: _grade,
+          avatar: _avatar,
+          petKind: _petKind,
+        );
     if (!mounted) return;
     if (saved) {
       context.go('/world');
@@ -152,22 +158,32 @@ class _OnboardingState extends ConsumerState<OnboardingScreen> {
                             ),
                         ],
                       ),
-                    if (_step == 3)
-                      const Column(
+                    if (_step == 3) ...[
+                      const Center(child: Qyran(size: 120)),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Серігіңді таңда. Ол миссиялармен бірге дамиды.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
-                          Qyran(size: 160),
-                          SizedBox(height: 16),
-                          Text(
-                            'Мен Қыранмын! Бірге есептің сырын ашып, жаңа жерлерді зерттейміз.',
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 12),
-                          Text(
-                            'Алғашқы серігің — Қыран. Басқа серіктер кейін қосылады.',
-                            textAlign: TextAlign.center,
-                          ),
+                          for (final pet in [
+                            ('qyran', '🦅 Қыран'),
+                            ('fox', '🦊 Түлкі'),
+                            ('dragon', '🐉 Айдаһар'),
+                            ('robot', '🤖 Робот'),
+                          ])
+                            _Choice(
+                              label: pet.$2,
+                              selected: _petKind == pet.$1,
+                              onTap: () => setState(() => _petKind = pet.$1),
+                            ),
                         ],
                       ),
+                    ],
                     if (_step == 4)
                       const Column(
                         children: [

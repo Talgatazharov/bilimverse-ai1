@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { saveTeacherMission } from '@/lib/local-teacher-missions';
 import { AppLayout } from '@/components/layout/AppLayout';
 import {
   Sparkles,
@@ -47,10 +48,19 @@ export default function TeacherCreateMissionPage() {
   } | null>(null);
 
   const [published, setPublished] = useState<boolean>(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
+  const editQuestion = (index: number, changes: Partial<NonNullable<typeof generatedMission>['questions'][number]>) => {
+    setGeneratedMission((current) => current && ({
+      ...current,
+      questions: current.questions.map((question, questionIndex) => questionIndex === index ? { ...question, ...changes } : question),
+    }));
+  };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsGenerating(true);
+    setGenerationError(null);
     sounds.play('click');
 
     try {
@@ -64,13 +74,24 @@ export default function TeacherCreateMissionPage() {
       setGeneratedMission(res);
       sounds.play('xp');
     } catch (err) {
-      console.error(err);
+      setGenerationError(err instanceof Error ? err.message : 'Миссияны құрастыру мүмкін болмады.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handlePublish = () => {
+    if (!generatedMission) return;
+    if (generatedMission.questions.some((question) => !question.question.trim() || question.options.some((option) => !option.trim()) || new Set(question.options).size !== 4 || !question.options.includes(question.correctAnswer))) {
+      setGenerationError('Әр сұраққа төрт түрлі жауап пен бір дұрыс жауап енгізіңіз.');
+      return;
+    }
+    try {
+      saveTeacherMission(generatedMission, { grade, subject, assignedClass: targetClass });
+    } catch {
+      setGenerationError('Миссияны осы браузерде сақтау мүмкін болмады.');
+      return;
+    }
     sounds.play('levelUp');
     setPublished(true);
     setTimeout(() => {
@@ -81,6 +102,7 @@ export default function TeacherCreateMissionPage() {
   return (
     <AppLayout showRightPanel={false}>
       <div className="space-y-8 max-w-5xl mx-auto select-none">
+        {generationError && <div role="alert" className="rounded-xl border border-rose-500 p-3 text-sm text-rose-200">{generationError}</div>}
         {/* Breadcrumb & Header */}
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
@@ -335,6 +357,18 @@ export default function TeacherCreateMissionPage() {
                       key={idx}
                       className="p-5 rounded-2xl bg-game-surface border border-game-panel space-y-3"
                     >
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 space-y-2 text-xs text-slate-300">
+                        <label className="block">Сұрақ мәтінін өңдеу<input value={q.question} onChange={(event) => editQuestion(idx, { question: event.target.value })} className="mt-1 w-full rounded-lg bg-slate-800 p-2 text-white" /></label>
+                        {q.options.map((option, optionIndex) => <label key={optionIndex} className="flex items-center gap-2">
+                          <input type="radio" name={`correct-${idx}`} checked={q.correctAnswer === option} onChange={() => editQuestion(idx, { correctAnswer: option })} aria-label="Дұрыс жауап" />
+                          <input value={option} onChange={(event) => {
+                            const options = [...q.options]; options[optionIndex] = event.target.value;
+                            editQuestion(idx, { options, correctAnswer: q.correctAnswer === option ? event.target.value : q.correctAnswer });
+                          }} className="w-full rounded-lg bg-slate-800 p-2 text-white" />
+                        </label>)}
+                        <label className="block">Кеңес<input value={q.hint} onChange={(event) => editQuestion(idx, { hint: event.target.value })} className="mt-1 w-full rounded-lg bg-slate-800 p-2 text-white" /></label>
+                        <label className="block">Түсіндірме<input value={q.explanation} onChange={(event) => editQuestion(idx, { explanation: event.target.value })} className="mt-1 w-full rounded-lg bg-slate-800 p-2 text-white" /></label>
+                      </div>
                       <div className="flex items-start justify-between gap-3">
                         <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 font-black text-xs flex items-center justify-center flex-shrink-0">
                           {idx + 1}

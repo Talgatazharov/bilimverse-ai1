@@ -23,6 +23,7 @@ import { Mission, Question } from '@/types';
 import { useGameStore } from '@/stores/useGameStore';
 import { sounds } from '@/lib/sound-manager';
 import { MatchingQuestion } from '@/components/game/MatchingQuestion';
+import { recordLearningAttempt } from '@/lib/local-learning-profile';
 
 interface MiniGameContainerProps {
   mission: Mission;
@@ -78,6 +79,7 @@ export const MiniGameContainer: React.FC<MiniGameContainerProps> = ({ mission })
     setSelectedOption(option);
 
     const correct = option === currentQuestion.correctAnswer;
+    try { recordLearningAttempt(currentQuestion, mission.title, correct); } catch { /* storage may be disabled */ }
     setIsCorrect(correct);
     setIsAnswered(true);
 
@@ -307,31 +309,8 @@ export const MiniGameContainer: React.FC<MiniGameContainerProps> = ({ mission })
             </div>
           )}
 
-          {/* B. Drag & Drop / Matching Mode */}
-          {currentQuestion?.type === 'dragDrop' && currentQuestion.pairItems && (
-            <div className="space-y-3">
-              <p className="text-xs text-sky-200 text-center">Сәйкес жұпты таңдаңыз:</p>
-              <div className="grid grid-cols-1 gap-2.5">
-                {currentQuestion.pairItems.map((pair, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 bg-game-navy rounded-2xl border border-game-panel flex items-center justify-between"
-                  >
-                    <span className="font-bold text-sm text-amber-300">{typeof pair.left === 'string' ? pair.left : pair.left.text || pair.left.alt || 'Сурет'}</span>
-                    <span className="text-xs text-slate-500">➔</span>
-                    <button
-                      onClick={() => handleSelectOption(currentQuestion.options[0])}
-                      className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/40 border border-amber-400/50 text-amber-200 font-extrabold text-sm"
-                    >
-                      {typeof pair.right === 'string' ? pair.right : pair.right.text || pair.right.alt || 'Сурет'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {currentQuestion?.type === 'matching' && (
+          {/* Matching also handles the original dragDrop pair question. */}
+          {(currentQuestion?.type === 'matching' || currentQuestion?.type === 'dragDrop') && (
             <MatchingQuestion
               key={currentQuestion.id}
               question={currentQuestion}

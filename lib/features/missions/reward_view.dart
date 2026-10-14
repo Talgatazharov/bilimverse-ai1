@@ -96,7 +96,7 @@ class RewardView extends StatelessWidget {
                 GameButton(
                   label: 'Келесі миссия',
                   secondary: true,
-                  onPressed: () => context.go('/kingdom'),
+                  onPressed: () => context.go('/world'),
                 ),
               ],
             ),

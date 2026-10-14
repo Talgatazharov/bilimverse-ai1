@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { aiService, AIAdventureNode } from '@/lib/ai-service';
 import { sounds } from '@/lib/sound-manager';
 import { useGameStore } from '@/stores/useGameStore';
+import { getTopicScores, loadLearningAttempts } from '@/lib/local-learning-profile';
 import {
   Sparkles,
   MapPin,
@@ -31,46 +32,100 @@ export default function AiAdventurePage() {
   const [currentNode, setCurrentNode] = useState<AIAdventureNode | null>(null);
   const [gameStatus, setGameStatus] = useState<'idle' | 'playing' | 'victory'>('idle');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const answerPending = React.useRef(false);
+  const learnerProfile = () => ({
+    grade: student.grade, level: student.level,
+    weakTopics: getTopicScores(loadLearningAttempts()).filter((score) => score.attempts >= 2 && score.correct / score.attempts < .7).slice(0, 3).map((score) => score.topic),
+  });
+
+  const storyPath = React.useRef<string[]>([]);
+  const recentQuestions = React.useRef<string[]>([]);
+  const variationId = React.useRef('');
+  const retryChoice = React.useRef<AIAdventureNode['choices'][0] | null>(null);
+  const [consequence, setConsequence] = useState<string | null>(null);
+
+  const fingerprint = (value: string) => value.toLocaleLowerCase('kk-KZ').replace(/[^а-яәғқңөұүһіa-z0-9]+/gi, ' ').trim().replace(/\s+/g, ' ');
+  const similarQuestion = (left: string, right: string) => {
+    if (fingerprint(left) === fingerprint(right)) return true;
+    const math = (value: string) => value.replace(/\s+/g, '').match(/\d+[+×x*/÷:-]\d+/)?.[0];
+    if (math(left) && math(left) === math(right)) return true;
+    const words = (value: string) => new Set(fingerprint(value).split(' ').filter((word) => word.length > 2));
+    const a = words(left); const b = words(right);
+    if (a.size < 3 || b.size < 3) return false;
+    return Array.from(a).filter((word) => b.has(word)).length / Math.min(a.size, b.size) >= .8;
+  };
+  const getScene = async (theme: string, step: number, path: string[]) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const node = await aiService.generateAdventureStep(theme, step, learnerProfile(), path, recentQuestions.current, variationId.current);
+      if (node.kind !== 'challenge' || !recentQuestions.current.some((question) => similarQuestion(question, node.question))) {
+        if (node.kind === 'challenge') {
+          recentQuestions.current = [...recentQuestions.current, node.question].slice(-30);
+          try { localStorage.setItem('bilimverse_adventure_recent_questions', JSON.stringify(recentQuestions.current)); } catch { /* optional history */ }
+        }
+        return node;
+      }
+    }
+    throw new Error('Қайталанбаған жаңа сұрақ құрастыру мүмкін болмады. Қайта көріңіз.');
+  };
 
   const startAdventure = async (themeId: string) => {
+    if (loading || answerPending.current) return;
     sounds.play('portal');
+    setAiError(null);
+    setLoading(true);
     setSelectedTheme(themeId);
     setCurrentStepIndex(0);
     setFeedback(null);
-    const node = await aiService.generateAdventureStep(themeId, 0);
-    setCurrentNode(node);
-    setGameStatus('playing');
+    setConsequence(null);
+    storyPath.current = [];
+    variationId.current = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem('bilimverse_adventure_recent_questions') || '[]');
+      recentQuestions.current = Array.isArray(saved) ? saved.filter((value) => typeof value === 'string').slice(-30) : [];
+    } catch { recentQuestions.current = []; }
+    try {
+      const node = await getScene(themeId, 0, []);
+      setCurrentNode(node);
+      setGameStatus('playing');
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'Оқиғаны бастау мүмкін болмады.');
+    } finally { setLoading(false); }
   };
 
-  const handleChoice = (choice: AIAdventureNode['choices'][0]) => {
+  const handleChoice = async (choice: AIAdventureNode['choices'][0]) => {
+    if (answerPending.current || !currentNode) return;
+    answerPending.current = true;
+    retryChoice.current = choice;
     sounds.play('click');
     setFeedback(choice.feedback);
-
-    if (choice.isCorrect) {
-      sounds.play('correct');
-      addXp(currentNode?.rewardXp || 30);
-      addCurrency(currentNode?.rewardCoins || 10);
-
-      setTimeout(async () => {
-        if (choice.nextStepId === 'victory' || currentStepIndex >= 2) {
-          sounds.play('levelUp');
-          setGameStatus('victory');
-        } else {
-          const nextIndex = currentStepIndex + 1;
-          setCurrentStepIndex(nextIndex);
-          setFeedback(null);
-          const nextNode = await aiService.generateAdventureStep(selectedTheme, nextIndex);
-          setCurrentNode(nextNode);
-        }
-      }, 1500);
-    } else {
-      sounds.play('incorrect');
-    }
+    setAiError(null);
+    const nextPath = [...storyPath.current, `${currentNode.title}: ${choice.text}. Салдары: ${choice.feedback}`];
+    try {
+      const nextIndex = currentStepIndex + 1;
+      const nextNode = await getScene(selectedTheme, nextIndex, nextPath);
+      if (currentNode.kind === 'challenge' && choice.isCorrect) {
+        addXp(currentNode.rewardXp);
+        addCurrency(currentNode.rewardCoins);
+        sounds.play('correct');
+      } else if (currentNode.kind === 'challenge') sounds.play('incorrect');
+      storyPath.current = nextPath;
+      setConsequence(choice.feedback);
+      setCurrentStepIndex(nextIndex);
+      setCurrentNode(nextNode);
+      setFeedback(null);
+      retryChoice.current = null;
+      if (nextNode.kind === 'ending') { sounds.play('levelUp'); setGameStatus('victory'); }
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'Келесі оқиғаны жүктеу мүмкін болмады.');
+    } finally { answerPending.current = false; }
   };
-
   return (
     <AppLayout showRightPanel={true}>
       <div className="space-y-6 max-w-4xl mx-auto">
+        {aiError && <div role="alert" className="rounded-xl border border-rose-500 p-3 text-sm text-rose-200">{aiError}<button className="ml-3 underline" onClick={() => { if (retryChoice.current) void handleChoice(retryChoice.current); else void startAdventure(selectedTheme); }}>Қайта көру</button></div>}
+        {loading && <p className="text-amber-300">Қыран оқиғаны құрастырып жатыр...</p>}
         <div>
           <h1 className="text-2xl font-black text-amber-300 flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-amber-400" />
@@ -116,6 +171,7 @@ export default function AiAdventurePage() {
         {/* 2. Interactive Quest Gameplay Node */}
         {gameStatus === 'playing' && currentNode && (
           <div className="bg-gradient-to-b from-game-surface to-game-navy rounded-3xl p-6 sm:p-8 border-2 border-amber-400 shadow-gold-glow space-y-6 animate-in zoom-in-95">
+            {consequence && <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3 text-sm text-emerald-200">Таңдауыңның салдары: {consequence}</div>}
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-game-panel">
               <span className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -134,7 +190,7 @@ export default function AiAdventurePage() {
             {/* Question prompt */}
             <div className="text-center my-4">
               <h3 className="text-lg font-black text-amber-300">
-                {currentNode.question}
+                {currentNode.kind === 'decision' ? 'Қай жолды таңдайсың?' : currentNode.question}
               </h3>
             </div>
 
@@ -144,6 +200,7 @@ export default function AiAdventurePage() {
                 <button
                   key={choice.id}
                   onClick={() => handleChoice(choice)}
+                  disabled={loading || answerPending.current}
                   className="w-full p-4 rounded-2xl bg-game-surface hover:bg-game-surfaceHover border-2 border-game-panel hover:border-amber-400 text-left font-bold text-sm text-white transition-all transform active:scale-95 flex items-center justify-between group"
                 >
                   <span>{choice.text}</span>
@@ -171,8 +228,7 @@ export default function AiAdventurePage() {
               КВЕСТ ТРИУМФЫ!
             </h2>
             <p className="text-xs text-sky-200 max-w-md mx-auto leading-relaxed">
-              Жарайсың, {student.name}! Сен AI Adventure саяхатынан абыроймен өтіп,
-              Ұлы Даланың сиқырын сақтап қалдың.
+              Жарайсың, {student.name}! {currentNode?.storyText}
             </p>
 
             <button

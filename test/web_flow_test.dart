@@ -51,6 +51,17 @@ Future<void> click(WidgetTester tester, String text) async {
 }
 
 void main() {
+  testWidgets('Sentence builder accepts words in order', (tester) async {
+    await launch(tester, MemoryStore(), '/mission/kazakh-3-starter');
+    await click(tester, 'Бала');
+    await click(tester, 'Келесі қадам');
+    await click(tester, 'Мен');
+    await click(tester, 'кітап');
+    await click(tester, 'оқимын');
+    await click(tester, 'Тексеру');
+    expect(find.textContaining('Жарайсың!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final width in [320.0, 1440.0]) {
     testWidgets('Browser entry and world navigation at $width', (tester) async {
       await launch(tester, MemoryStore(), '/', width: width);
@@ -133,10 +144,19 @@ void main() {
       final controller = container.read(studentProvider.notifier);
       expect(await controller.completeMission('golden-bridge', 1), isTrue);
       expect(await controller.completeMission('golden-bridge', 3), isTrue);
+      expect(
+        await controller.completeMission(
+          'golden-bridge',
+          3,
+          assignmentId: 'a1',
+        ),
+        isTrue,
+      );
       final progress = await LocalProgressRepository(store).load();
       expect(progress.xp, 1450);
       expect(progress.currency, 355);
       expect(progress.stars['golden-bridge'], 3);
+      expect(progress.completedAssignments, contains('a1'));
       expect(await controller.completeMission('unknown', 3), isFalse);
     },
   );
